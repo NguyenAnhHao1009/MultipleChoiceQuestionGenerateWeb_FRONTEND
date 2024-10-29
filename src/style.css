@@ -1,0 +1,19 @@
+*{
+  font-family: 'Calibri', 'Gill Sans', 'Gill Sans MT', 'Trebuchet MS', sans-serif;
+  padding: 0px;
+  margin: 0px;
+}
+
+.title-header{
+  padding: 0px 4rem;
+}
+
+.title-header h1 {
+  font-family: Verdana, sans-serif;
+  font-weight: bolder;
+}
+
+.title-header .info-using {
+  color: gray;
+  font-size: 1.4rem;
+}

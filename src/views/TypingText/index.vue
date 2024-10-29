@@ -1,0 +1,159 @@
+<template>
+  <div id="typing-text">
+    <div class="title-header">
+      <h1 class="text-center">TYPING YOUR CONTENT</h1>
+      <div class="info-using text-center">
+        Enter anything you want to create questions from them!
+      </div>
+    </div>
+    <div class="col text-center pt-5">
+      <button
+        :disabled="content ? false : true"
+        @click="handleSubmit"
+        class="btn btn-primary button-generate"
+      >
+        <h3>
+          <b>
+            {{
+              status == 'loading' ? 'Creating Questions' : 'Create Questions'
+            }}
+          </b>
+        </h3>
+      </button>
+      <div
+        v-if="status === 'loading'"
+        class="progress mt-4"
+        role="progressbar"
+        aria-label="Animated striped example"
+        aria-valuemin="0"
+        aria-valuemax="100"
+      >
+        <div
+          class="progress-bar progress-bar-striped progress-bar-animated"
+          :style="{ width: percentLoading + '%' }"
+        ></div>
+      </div>
+    </div>
+    <h3 v-if="status === 'loading'" class="text-center">
+      {{ percentLoading }} %
+    </h3>
+    <h3
+      v-if="status === 'success' && results.length > 0"
+      class="text-center text-bolder pt-4 text-success"
+    >
+      Generate Question Successfully!
+    </h3>
+    <h3
+      v-if="status === 'success' && results.length == 0"
+      class="text-center text-bolder pt-4 text-info"
+    >
+      No question generated. Enter some thing!
+    </h3>
+
+    <h3
+      v-if="status === 'error'"
+      class="text-center text-bolder pt-4 text-danger"
+    >
+      There is some unexpected errors occur:
+    </h3>
+
+    <div class="py-5 text-center row justify-content-center">
+      <div class="col-11 col-md-9 col-lg-6">
+        <textarea
+          autofocus
+          v-model="content"
+          ref="textarea"
+          class="form-control"
+          rows="1"
+          placeholder="Entering text here . . ."
+        ></textarea>
+      </div>
+    </div>
+  </div>
+  <Result v-if="results.length > 0" :results="results"></Result>
+</template>
+
+<script>
+import { auto } from '@popperjs/core';
+import Result from '../../components/Result/index.vue';
+
+export default {
+  components: {
+    Result,
+  },
+  data() {
+    return {
+      content: '',
+      //   numberOfQuestion: 5,
+      percentLoading: 0,
+      status: '', // loading // success
+      results: [],
+      error: {},
+    };
+  },
+  mounted() {
+    const textarea = this.$refs.textarea;
+    textarea.addEventListener('input', function () {
+      textarea.style.height = 'auto';
+      textarea.style.height = textarea.scrollHeight + 'px';
+    });
+  },
+  methods: {
+    async handleSubmit() {
+      this.status = 'loading';
+      this.percentLoading = 0;
+      this.startLoading();
+      // Gửi dữ liệu lên server
+      try {
+        const response = await fetch('http://192.168.88.181:5000/mcq-create', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            content: this.content,
+            // numberOfQuestion: this.numberOfQuestion,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        this.results = [];
+        const data = await response.json();
+        console.log('Received data:', data);
+        this.results = data; // Cập nhật results với dữ liệu từ server
+        this.percentLoading = 100; // Đặt thanh progress lên 100%
+        this.status = 'success'; // Cập nhật trạng thái
+      } catch (error) {
+        this.status = 'error';
+        this.error = error;
+      }
+    },
+    startLoading() {
+      this.percentLoading = 0;
+      const interval = setInterval(() => {
+        if (this.percentLoading < 100) {
+          if (this.percentLoading < 99) this.percentLoading += 1;
+        } else {
+          clearInterval(interval);
+          this.status = 'success';
+        }
+      }, 105);
+    },
+  },
+};
+</script>
+
+<style scoped>
+textarea {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.button-generate {
+  padding: 1.5rem 5rem;
+  border-radius: 15px;
+  box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.403);
+}
+</style>
