@@ -20,6 +20,20 @@
           </b>
         </h3>
       </button>
+      <div class="mt-3 row text-center justify-content-center">
+        <h4 class="fw-bold text-primary">
+          Number of answers for each question:
+        </h4>
+        <div class="row container col-3 col-lg-1 text-center">
+          <select class="form-control" v-model="numberOfAnswers">
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+          </select>
+        </div>
+      </div>
       <div
         v-if="status === 'loading'"
         class="progress mt-4"
@@ -74,8 +88,8 @@
 </template>
 
 <script>
-import { auto } from '@popperjs/core';
 import Result from '../../components/Result/index.vue';
+import { submitText } from '../../service/api_service';
 
 export default {
   components: {
@@ -89,6 +103,7 @@ export default {
       status: '', // loading // success
       results: [],
       error: {},
+      numberOfAnswers: 3,
     };
   },
   mounted() {
@@ -100,34 +115,23 @@ export default {
   },
   methods: {
     async handleSubmit() {
+      this.results = [];
       this.status = 'loading';
       this.percentLoading = 0;
       this.startLoading();
-      // Gửi dữ liệu lên server
-      try {
-        const response = await fetch('http://192.168.88.181:5000/mcq-create', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            content: this.content,
-            // numberOfQuestion: this.numberOfQuestion,
-          }),
-        });
 
-        if (!response.ok) {
-          throw new Error('Network response was not ok');
-        }
-        this.results = [];
-        const data = await response.json();
-        console.log('Received data:', data);
-        this.results = data; // Cập nhật results với dữ liệu từ server
+      try {
+        // Gọi API qua service
+        this.results = await submitText(this.content, this.numberOfAnswers - 1);
+
+        console.log('Received data:', this.results);
+
         this.percentLoading = 100; // Đặt thanh progress lên 100%
-        this.status = 'success'; // Cập nhật trạng thái
+        this.status = 'success'; // Cập nhật trạng thái thành công
       } catch (error) {
         this.status = 'error';
         this.error = error;
+        console.error('Error occurred:', error);
       }
     },
     startLoading() {

@@ -1,5 +1,5 @@
 <template>
-  <div id="results" class="container">
+  <div id="results " class="container">
     <div class="text-end mb-2">
       <button @click="exportPDF" class="btn btn-warning">
         <i class="fa-solid fa-file-import"></i> Export to PDF
@@ -8,13 +8,13 @@
     <div class="row">
       <div class="col-6 text-start">
         <span
-          >Number of Questions: <b>{{ results.length }}</b></span
+          >Number of Questions: <b>{{ localResults.length }}</b></span
         >
       </div>
       <div class="col-6 text-end pb-3">
         <Modal
-          v-if="showAllAnswer == false"
-          @accepted="showAllAnswer = !showAllAnswer"
+          v-if="toggleBtnShowAllAnswer"
+          @accepted="showAllAnswers()"
           :modalAttribute="{
             modalTitle: 'Message',
             message: 'Do you want to show all answers?',
@@ -25,25 +25,28 @@
         </Modal>
 
         <button
-          v-if="showAllAnswer == true"
+          v-if="!toggleBtnShowAllAnswer"
           class="btn btn-danger"
-          @click="showAllAnswer = !showAllAnswer"
+          @click="hideAllAnswers()"
         >
           Hide All Answers
         </button>
       </div>
       <hr />
-      <div
-        v-for="(result, index) in results"
-        :key="index"
-        class="col-12 col-lg-6 pb-4 align-items-stretch d-flex flex-column"
-      >
-        <EachResult
-          @removeQuestion="handleRemoveQuestion(index)"
-          :result="result"
-          :showAllAnswer="showAllAnswer"
-          :index="index"
-        ></EachResult>
+      <div class="col-12 row pb-4 align-items-stretch">
+        <div
+          class="col-12 col-lg-6 d-flex flex-column"
+          v-for="(result, index) in localResults"
+          :key="result.id"
+        >
+          <EachResult
+            @removeQuestion="handleRemoveQuestion"
+            :result="result"
+            :index="index"
+            :isShowAnswer="isShowAnswer(index)"
+            @changeStatusShowAnswer="handleChangeStatusShowAnswer"
+          ></EachResult>
+        </div>
       </div>
     </div>
   </div>
@@ -53,35 +56,59 @@
 import Modal from '../Modal/index.vue';
 import EachResult from './EachResult.vue';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable'; // Nếu bạn muốn sử dụng tính năng bảng
+import 'jspdf-autotable';
 
 export default {
   components: { EachResult, Modal },
   props: ['results'],
   data() {
     return {
-      showAllAnswer: false,
+      localResults: [],
+      toggleBtnShowAllAnswer: true,
     };
   },
+  created() {
+    this.localResults = this.results.map((result, index) => ({
+      ...result,
+      isShowAnswer: false,
+      id: result.id || index,
+    }));
+    console.log(this.results);
+  },
   methods: {
-    handleRemoveQuestion(index) {
-      this.results.splice(index, 1);
+    isShowAnswer(index) {
+      return this.localResults[index].isShowAnswer;
     },
-    shuffleResult(result) {
-      for (let i = result.length - 1; i > 0; i--) {
+    handleRemoveQuestion(index) {
+      let accept_remove = confirm('Xóa câu hỏi ' + (index + 1));
+      accept_remove ? this.localResults.splice(index, 1) : '';
+    },
+    handleChangeStatusShowAnswer(index) {
+      this.localResults[index].isShowAnswer =
+        !this.localResults[index].isShowAnswer;
+      // console.log(this.localResults[index]);
+    },
+    showAllAnswers() {
+      this.localResults.forEach((each) => (each.isShowAnswer = true));
+      this.toggleBtnShowAllAnswer = false;
+      // console.log(this.localResults);
+    },
+    hideAllAnswers() {
+      this.localResults.forEach((each) => (each.isShowAnswer = false));
+      this.toggleBtnShowAllAnswer = true;
+      // console.log(this.localResults);
+    },
+    shuffleResult(array) {
+      for (let i = array.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
-        [result[i], result[j]] = [result[j], result[i]];
+        [array[i], array[j]] = [array[j], array[i]];
       }
-      return result;
+      return array;
     },
     exportPDF() {
       const doc = new jsPDF();
-
-      // Thêm font Times New Roman
       doc.addFont('Times-Roman.ttf', 'Times', 'normal');
       doc.addFont('Times-Bold.ttf', 'Times', 'bold');
-
-      // Thêm tiêu đề canh giữa
       doc.setFont('Times', 'bold');
       const pageWidth = doc.internal.pageSize.getWidth();
       const title = 'Multiple Choice Question';
@@ -91,14 +118,11 @@ export default {
       const x = (pageWidth - titleWidth) / 2;
       doc.text(title, x, 20);
 
-      let y = 30; // Vị trí y bắt đầu
-
-      this.results.forEach((result, index) => {
-        // Kiểm tra xem có cần thêm trang mới không
+      let y = 30;
+      this.localResults.forEach((result, index) => {
         if (y + 20 > doc.internal.pageSize.height) {
-          // Nếu gần hết trang
-          doc.addPage(); // Thêm trang mới
-          y = 20; // Reset y về vị trí đầu trang
+          doc.addPage();
+          y = 20;
         }
         doc.setFont('Times', 'bold');
         doc.setFontSize(12);
@@ -106,19 +130,15 @@ export default {
         y += 10;
         doc.setFont('Times', 'normal');
         let answers = [...result.distract, result.correct_answer];
-        answers = this.shuffleResult(answers); // Giả sử bạn có phương thức shuffleResult
-
+        answers = this.shuffleResult(answers);
         const label = ['A', 'B', 'C', 'D', 'E', 'F'];
-
         answers.forEach((answer, answerIndex) => {
           doc.text(`${label[answerIndex]}. ${answer}`, 14, y);
           y += 7;
         });
-
-        y += 8; // Tăng thêm khoảng cách giữa các câu hỏi
+        y += 8;
       });
 
-      // Lưu file PDF
       doc.save('result.pdf');
     },
   },

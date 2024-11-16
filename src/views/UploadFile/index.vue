@@ -13,11 +13,35 @@
         <b>Upload Your File <i class="fa-solid fa-file-import"></i></b>
       </h3>
     </button>
-    <button v-else class="button-upload btn btn-primary" @click="">
+    <button
+      :disabled="disabledButton"
+      v-else
+      class="button-upload btn btn-primary"
+      @click="handleSubmitFile"
+    >
       <h3>
-        <b>Starting Create Questions</b>
+        <b
+          >Starting Create Questions
+          <span
+            v-if="disabledButton"
+            class="spinner-grow spinner-grow"
+            aria-hidden="true"
+          ></span>
+        </b>
       </h3>
     </button>
+    <div class="mt-3 row text-center justify-content-center">
+      <h4 class="fw-bold text-primary">Number of answers for each question:</h4>
+      <div class="row container col-lg-1 col-3 text-center">
+        <select class="form-control" v-model="numberOfAnswers">
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+          <option value="5">5</option>
+          <option value="6">6</option>
+        </select>
+      </div>
+    </div>
     <div v-if="fileName" class="file-name mt-3">
       <p class="text-black">
         <i class="fa-solid fa-file-pdf"></i> {{ fileName }}
@@ -28,7 +52,7 @@
               btnTitle: 'x',
               modalTitle: 'Warning',
               message: 'Do you want to delete the file ' + fileName,
-              btnColor: 'btn-outline-danger btn-sm px-2',
+              btnColor: 'btn btn-outline-danger btn-sm px-2',
             }"
           ></Modal
         ></span>
@@ -42,12 +66,13 @@
       style="display: none"
     />
   </div>
-  <Result :results="results"></Result>
+  <Result v-if="results.length > 0" :results="results"></Result>
 </template>
 <script>
 import axios from 'axios';
 import Modal from '../../components/Modal/index.vue';
 import Result from '../../components/Result/index.vue';
+import { uploadPdfFile } from '../../service/api_service';
 
 export default {
   components: {
@@ -58,96 +83,53 @@ export default {
     return {
       hasFile: false,
       fileName: '',
-      results: [
-        {
-          question: 'What is the capital city of France?',
-          correct_answer: 'Paris',
-          distract: ['London', 'Berlin', 'Madrid'],
-          context: 'Paris is known for its art, fashion, and culture.',
-        },
-        {
-          question: 'Which planet is known as the Red Planet?',
-          correct_answer: 'Mars',
-          distract: ['Earth', 'Jupiter', 'Saturn'],
-          context:
-            'Mars is often called the Red Planet due to its reddish appearance.',
-        },
-        {
-          question: 'Who wrote the play "Romeo and Juliet"?',
-          correct_answer: 'William Shakespeare',
-          distract: ['Charles Dickens', 'Mark Twain', 'Jane Austen'],
-          context:
-            'William Shakespeare is a famous playwright known for his tragedies and comedies.',
-        },
-        {
-          question: 'What is the largest mammal in the world?',
-          correct_answer: 'Blue whale',
-          distract: ['African elephant', 'Giraffe', 'Great white shark'],
-          context:
-            'The blue whale is the largest animal known to have ever existed on Earth.',
-        },
-        {
-          question: 'What is the chemical symbol for gold?',
-          correct_answer: 'Au',
-          distract: ['Ag', 'Fe', 'Pb'],
-          context: 'Gold is a precious metal with the chemical symbol Au.',
-        },
-        {
-          question: 'Which ocean is the largest?',
-          correct_answer: 'Pacific Ocean',
-          distract: ['Atlantic Ocean', 'Indian Ocean', 'Arctic Ocean'],
-          context:
-            'The Pacific Ocean covers more area than all of the Earth’s land combined.',
-        },
-        {
-          question: 'In which year did the Titanic sink?',
-          correct_answer: '1912',
-          distract: ['1905', '1918', '1920'],
-          context:
-            'The Titanic sank on its maiden voyage after hitting an iceberg.',
-        },
-        {
-          question: 'What is the primary language spoken in Brazil?',
-          correct_answer: 'Portuguese',
-          distract: ['Spanish', 'English', 'French'],
-          context:
-            'Brazil is the largest country in South America, and Portuguese is its official language.',
-        },
-        {
-          question: 'What gas do plants absorb from the atmosphere?',
-          correct_answer: 'Carbon dioxide',
-          distract: ['Oxygen', 'Nitrogen', 'Hydrogen'],
-          context:
-            'Plants use carbon dioxide during photosynthesis to produce oxygen and glucose.',
-        },
-        {
-          question:
-            'Which famous scientist developed the theory of relativity?',
-          correct_answer: 'Albert Einstein',
-          distract: ['Isaac Newton', 'Galileo Galilei', 'Nikola Tesla'],
-          context:
-            'Albert Einstein is renowned for his contributions to physics, particularly the theory of relativity.',
-        },
-      ],
+      file: null,
+      results: [],
+      context: '',
+      disabledButton: false,
+      numberOfAnswers: 3,
     };
   },
   methods: {
+    async handleSubmitFile() {
+      this.disabledButton = true; // Vô hiệu hóa nút trong khi chờ phản hồi
+      try {
+        this.results = await uploadPdfFile(
+          this.file,
+          this.numberOfAnswers - 1,
+          (progressEvent) => {
+            this.percentLoading = Math.round(
+              (progressEvent.loaded * 100) / progressEvent.total
+            );
+          }
+        );
+        console.log('Received data:', this.results);
+      } catch (error) {
+        alert('Đã xảy ra lỗi khi tải lên file PDF');
+      } finally {
+        this.disabledButton = false;
+      }
+    },
     triggerFileInput() {
       this.$refs.fileInput.click();
     },
-    // Xử lý file khi người dùng chọn file
-    handleFileUpload(event) {
-      const file = event.target.files[0];
-      if (file && file.type === 'application/pdf') {
+    async handleFileUpload(event) {
+      this.file = event.target.files[0];
+      if (this.file && this.file.type === 'application/pdf') {
         this.hasFile = true;
-        this.fileName = file.name;
+
+        this.fileName = this.file.name;
+        console.log(this.fileName);
       } else {
         alert('Please upload a valid PDF file.');
       }
     },
+
     handleDeleteFile() {
       this.hasFile = false;
       this.fileName = '';
+      this.file = null;
+      this.pdfContent = '';
       this.$refs.fileInput.value = null;
     },
   },
